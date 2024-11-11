@@ -1,19 +1,21 @@
 package main
 
 import (
-	"fmt"
-
-	"Booking-App/validation"
+	"context"
+    "fmt"
+    "log"
+    "go.mongodb.org/mongo-driver/bson"
+    "go.mongodb.org/mongo-driver/mongo"
+    "go.mongodb.org/mongo-driver/mongo/options"
+    "Booking-App/validation"
 )
 
 var confrenceName = "Go Confrence"
-
 const confrenceTickets int = 50
-
 var remainingTickets uint = 50
-
 // slice
 var bookings = make([]UserData, 0)
+var client *mongo.Client
 
 type UserData struct {
 	firstName       string
@@ -23,7 +25,8 @@ type UserData struct {
 }
 
 func main() {
-
+	connectDB()
+	defer client.Disconnect(context.TODO())
 	greetUsers()
 
 	for {
@@ -106,9 +109,34 @@ func bookTicket(userTickets uint, firstName string, lastName string, email strin
 		email:           email,
 		numberOfTickets: userTickets,
 	}
+	collection := client.Database("BookingApp").Collection("bookings")
+    _, err := collection.InsertOne(context.TODO(), bson.M{
+        "first_name":       firstName,
+        "last_name":        lastName,
+        "email":           email,
+        "number_of_tickets": userTickets,
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
 	bookings = append(bookings, userData)
 	fmt.Printf("the information of bookings are: %v \n", bookings)
 	fmt.Printf("Thank you %v %v for booking %v tickets. with confirmation email: %v.\n", firstName, lastName, userTickets, email)
 	fmt.Printf("remaining tickets are: %v \n", remainingTickets)
 
+}
+// connecting to local mongodb server
+func connectDB() {
+    var err error
+    clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
+    client, err = mongo.Connect(context.TODO(), clientOptions)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    err = client.Ping(context.TODO(), nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Println("Connected to MongoDB!")
 }
